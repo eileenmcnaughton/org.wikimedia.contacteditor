@@ -201,15 +201,29 @@ class CRM_Contacteditor_ChangeContactType {
    */
   public static function hasRelationshipsInvalidForNewType($contactID, $newContactType) {
     $directions = array('a', 'b');
+
+    if (!isset(Civi::$statics[__CLASS__]['relationships']['generic'])) {
+      Civi::$statics[__CLASS__]['relationships']['generic'] = array();
+      foreach ($directions as $direction) {
+        $genericRelationshipTypes = $relationshipTypes = civicrm_api3('RelationshipType', 'get', array(
+          'contact_type_' . $direction => $newContactType,
+          'return' => 'id',
+        ));
+        foreach ($genericRelationshipTypes['values'] as $relationshipType) {
+          Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationshipType['id']] = TRUE;
+        }
+      }
+    }
+
     if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType])) {
       Civi::$statics[__CLASS__]['relationships'][$newContactType] = array();
       foreach ($directions as $direction) {
         $relationshipTypes = civicrm_api3('RelationshipType', 'get', array(
-          'contact_type_' . $direction => array('IN' => ['Contact', $newContactType]),
+          'contact_type_' . $direction => $newContactType,
           'return' => 'id',
         ));
         foreach ($relationshipTypes['values'] as $relationshipType) {
-          Civi::$statics[__CLASS__]['relationships'][$newContactType][$relationshipType['id']] = $direction;
+          Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationshipType['id']] = TRUE;
         }
       }
     }
@@ -217,7 +231,9 @@ class CRM_Contacteditor_ChangeContactType {
     foreach ($directions as $direction) {
       $relationships = civicrm_api3('Relationship', 'get', array('contact_id_' . $direction => $contactID));
       foreach ($relationships['values'] as $relationship) {
-        if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType][$relationship['id']])) {
+        if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationship['id']])
+        && !isset(Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationship['id']])
+        ) {
           return TRUE;
         }
       }
