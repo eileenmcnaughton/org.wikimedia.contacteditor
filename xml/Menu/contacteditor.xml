@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<menu>
+  <item>
+    <path>civicrm/contacttypechange</path>
+    <page_callback>CRM_Contacteditor_Form_ContactTypeChange</page_callback>
+    <title>Contact Type Change</title>
+    <access_arguments>Change CiviCRM contact type</access_arguments>
+  </item>
+</menu>

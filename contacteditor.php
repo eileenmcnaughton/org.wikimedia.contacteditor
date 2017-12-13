@@ -129,11 +129,24 @@ function contacteditor_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
  *
  * @param array $permissions
  */
-function  contacteditor_civicrm_permission(&$permissions) {
+function contacteditor_civicrm_permission(&$permissions) {
   $permissions['Change CiviCRM contact type'] = array(
     E::ts('Change CiviCRM contact type'),
     E::ts('Permits changing a contact type. This may result in data loss if the new type does not support all data of the old type.'),
   );
+}
+
+function contacteditor_civicrm_summaryActions(&$actions, $contactID) {
+  if (CRM_Core_Permission::check('Change CiviCRM contact type')) {
+    $actions['casework'] = array(
+      'title' => 'Change Contact Type',
+      'weight' => 999,
+      'class' => 'no-popup',
+      'ref' => 'change-contact-type',
+      'key' => 'change-contact-type',
+      'href' => '/civicrm/contacttypechange?contact_id=' . $contactID
+    );
+  }
 }
 
 // --- Functions below this ship commented out. Uncomment as required. ---
