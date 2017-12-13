@@ -260,8 +260,8 @@ class CRM_Contacteditor_ChangeContactType {
    */
   public static function getDefaultGreetingsForContactType($contactTypeToRetrieve) {
 
-    if (!isset(Civi::$statics[__CLASS__])) {
-      Civi::$statics[__CLASS__]['greetings'] = array();
+    if (!isset(Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve])) {
+      Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve] = array();
 
       $optionGroups = civicrm_api3('OptionGroup', 'get', array(
           'name' => array(
