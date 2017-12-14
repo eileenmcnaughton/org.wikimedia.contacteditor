@@ -33,7 +33,7 @@ class CRM_Contacteditor_ChangeContactType {
     if ($existingContactType ===  $newContactType) {
       return;
     }
-    if (!CRM_Core_Permission::check(array('Change CiviCRM contact type'))) {
+    if (!empty($request['params']['check_permissions']) && !CRM_Core_Permission::check(array('Change CiviCRM contact type'))) {
       throw new CRM_Core_Exception('You do have not permission to change the contact type');
     }
     $contactTypeSpecificCustomFields = self::getCustomFieldsExclusiveToContactType($existingContactType);

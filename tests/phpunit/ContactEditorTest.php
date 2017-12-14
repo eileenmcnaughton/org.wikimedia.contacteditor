@@ -43,6 +43,7 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
    */
   public function testValidContactChange() {
     $contact = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = array('Change CiviCRM contact type', 'access CiviCRM', 'edit all contacts');
     $this->callAPISuccess('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id']));
     $contact = $this->callAPISuccess('Contact', 'getsingle', array('id' => $contact['id'], 'return' => 'addressee'));
     $this->assertEquals('Really an Org', $contact['addressee_display']);
@@ -55,7 +56,8 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
     $contact = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
 
     CRM_Core_Config::singleton()->userPermissionClass->permissions = array();
-    $this->callAPIFailure('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id']), 'You do have not permission to change the contact type');
+    $this->callAPIFailure('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id'], 'check_permissions' => 1
+    ), 'You do have not permission to change the contact type');
   }
 
 }
