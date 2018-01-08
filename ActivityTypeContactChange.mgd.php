@@ -9,6 +9,7 @@ return array(
       'label' => 'Contact Type Changed',
       'name' => 'contact_type_changed',
       'description' => 'Contact type changed',
+      'filter' => 1,
     ),
   ),
 );
