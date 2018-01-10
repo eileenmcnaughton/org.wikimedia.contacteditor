@@ -31,6 +31,7 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
   }
 
   public function setUp() {
+    civicrm_initialize();
     parent::setUp();
   }
 
@@ -43,12 +44,40 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
    */
   public function testValidContactChange() {
     $contact = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
+    $this->mockLoggedInUser();
+
     CRM_Core_Config::singleton()->userPermissionClass->permissions = array('Change CiviCRM contact type', 'access CiviCRM', 'edit all contacts');
+
     $this->callAPISuccess('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id']));
+
     $contact = $this->callAPISuccess('Contact', 'getsingle', array('id' => $contact['id'], 'return' => 'addressee'));
     $this->assertEquals('Really an Org', $contact['addressee_display']);
+    $activity = $this->callAPISuccessGetSingle('Activity', array('target_contact_id' => $contact['id']));
+    $this->assertEquals('Data lost by the change : first_name -> Really an Org', $activity['details']);
+    $this->assertEquals('Contact type changed from Individual to Organization', $activity['subject']);
   }
 
+  /**
+   * Test that the all-contacts to all contacts relationship type does not block change.
+   */
+  public function testValidContactChangeWithChangeableRelationship() {
+    $contacta = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
+    $contactb = civicrm_api3('Contact', 'create', array('contact_type' => 'Organization', 'organization_name' => 'Just an Org', 'email' => 'anorg@example.com'));
+    $this->mockLoggedInUser();
+
+    $this->callAPISuccess('RelationshipType', 'create', array(
+      'name_a_b' => 'contact of',
+      'name_b_a' => 'contact to',
+      'contact_type_a' => 'null',
+      'contact_type_b' => 'null',
+      'api.relationship.create' => array('contact_id_a' => $contacta['id'], 'contact_id_b' => $contactb['id'])
+    ));
+    // Clear cache.
+    unset(\Civi::$statics['CRM_Contacteditor_ChangeContactType']);
+
+    $this->callAPISuccess('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contacta['id']));
+
+  }
   /**
    * Example: Test that a version is returned.
    */
@@ -58,6 +87,15 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
     CRM_Core_Config::singleton()->userPermissionClass->permissions = array();
     $this->callAPIFailure('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id'], 'check_permissions' => 1
     ), 'You do have not permission to change the contact type');
+  }
+
+  /**
+   * Mock a logged in user.
+   */
+  protected function mockLoggedInUser() {
+    $contact = $this->callApiSuccess('Contact', 'create', ['email' => 'email@example.org', 'contact_type' => 'Individual']);
+    // Source contact for activity is the logged in user, emulate.
+    CRM_Core_Session::singleton()->set('userID', $contact['id']);
   }
 
 }

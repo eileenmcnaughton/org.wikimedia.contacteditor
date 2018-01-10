@@ -11,7 +11,8 @@ use CRM_Contacteditor_ExtensionUtil as E;
 class CRM_Contacteditor_ChangeContactType {
 
   /**
-   * Validate whether the contact type is being changed and if so whether it is permitted.
+   * Validate whether the contact type is being changed and if so whether it is
+   * permitted.
    *
    * @param Civi\API\Event\PrepareEvent $apiRequest
    *
@@ -19,7 +20,7 @@ class CRM_Contacteditor_ChangeContactType {
    */
   public static function validate($apiRequest) {
     $request = $apiRequest->getApiRequest();
-    if ($request['entity'] !== 'Contact' || $request['action']  !== 'create') {
+    if ($request['entity'] !== 'Contact' || $request['action'] !== 'create') {
       return;
     }
     if (empty($request['params']['id']) || empty($request['params']['contact_type'])) {
@@ -29,24 +30,26 @@ class CRM_Contacteditor_ChangeContactType {
     $contactID = $request['params']['id'];
     $newContactType = $request['params']['contact_type'];
     // Usually we will return after getting this - if we proceed past here we do more extensive data gathering as it is 'the real deal'.
-    $existingContactType = civicrm_api3('Contact', 'getvalue', ['id' => $contactID, 'return' => 'contact_type']);
-    if ($existingContactType ===  $newContactType) {
+    $existingContactType = civicrm_api3('Contact', 'getvalue', [
+      'id' => $contactID,
+      'return' => 'contact_type',
+    ]);
+    if ($existingContactType === $newContactType) {
       return;
     }
     if (!empty($request['params']['check_permissions']) && !CRM_Core_Permission::check(array('Change CiviCRM contact type'))) {
       throw new CRM_Core_Exception('You do have not permission to change the contact type');
     }
     $contactTypeSpecificCustomFields = self::getCustomFieldsExclusiveToContactType($existingContactType);
-    $extraFieldsRequired = $contactTypeSpecificCustomFields + array(
+    $contactTypeSpecificFields = $contactTypeSpecificCustomFields + array(
       'birth_date',
-      'contact_subtype',
+      'contact_sub_type',
       'deceased_date',
       'is_deceased',
       'full_name',
       'first_name',
       'last_name',
       'organization_name',
-      'gender_id',
       'nick_name',
       'suffix_id',
       'prefix_id',
@@ -57,7 +60,10 @@ class CRM_Contacteditor_ChangeContactType {
       'household_name',
     );
 
-    $existingContact = civicrm_api3('Contact', 'getsingle', ['id' => $contactID, 'return' => $extraFieldsRequired]);
+    $existingContact = civicrm_api3('Contact', 'getsingle', [
+      'id' => $contactID,
+      'return' => $contactTypeSpecificFields,
+    ]);
     $existingContact['contact_type'] = $existingContactType;
 
     if (!empty($params['contact_sub_type']) || !empty($existingContact['contact_sub_type'])) {
@@ -65,38 +71,41 @@ class CRM_Contacteditor_ChangeContactType {
     }
 
     if ($existingContactType === 'Individual' && (
-      !empty($existingContact['birth_date'])
-      || !empty($existingContact['is_deceased'])
-      || !empty($existingContact['deceased_date'])
-    )) {
+        !empty($existingContact['birth_date'])
+        || !empty($existingContact['is_deceased'])
+        || !empty($existingContact['deceased_date'])
+      )) {
       throw new CRM_Core_Exception(E::ts('Individuals cannot be changed to another type while they have birth or death data'));
     }
 
-    foreach ($contactTypeSpecificCustomFields as $contactTypeSpecificCustomField) {
-      if (!empty($existingContact[$contactTypeSpecificCustomField])) {
-        throw new CRM_Core_Exception(E::ts('The contact has custom data that is not valid for the new type.'));
-      }
+    if (self::hasCustomFieldsInvalidForNewType($contactTypeSpecificCustomFields, $existingContact)) {
+      throw new CRM_Core_Exception(E::ts('The contact has custom data that is not valid for the new type.'));
     }
 
     // We check the id before checking for more relationships as it might give an early return with less queries.
     if (($newContactType === 'Individual' && !empty($existingContact['primary_contact_id']))
-    || self::hasRelationshipsInvalidForNewType($contactID, $newContactType)
+      || self::hasRelationshipsInvalidForNewType($contactID, $newContactType)
     ) {
       throw new CRM_Core_Exception(E::ts('The contact has one or more relationships that are not valid for the new type'));
     }
-    $nullableFields = array_intersect_key($existingContact, array_keys($extraFieldsRequired));
-    $details = '';
-    foreach ($nullableFields as $nullableField) {
+    $nullableFields = array_intersect_key($existingContact, array_flip($contactTypeSpecificFields));
+    $details = array();
+    foreach (array_keys($nullableFields) as $nullableField) {
       $params[$nullableField] = 'null';
-      $details .= $nullableField . ' -> ' . $existingContact[$nullableField];
+      if (!empty($existingContact[$nullableField])) {
+        $details[] = $nullableField . ' -> ' . $existingContact[$nullableField];
+      }
     }
 
     self::adjustFieldsForContactTypeChange($request['params'], $existingContact);
     civicrm_api3('Activity', 'create', array(
-      'source_contact_id' => $contactID,
+      'target_contact_id' => $contactID,
       'activity_type_id' => 'contact_type_changed',
-      'subject' => E::ts('Contact type changed from %1 to %2', array($existingContactType, $newContactType)),
-      'detail' => empty($details) ? '' : E::ts('Data lost by the change : '),
+      'subject' => E::ts('Contact type changed from %1 to %2', array(
+        $existingContactType,
+        $newContactType,
+      )),
+      'details' => empty($details) ? '' : E::ts('Data lost by the change : ') . implode(', ', $details),
     ));
     $apiRequest->setApiRequest($request);
   }
@@ -113,12 +122,13 @@ class CRM_Contacteditor_ChangeContactType {
   }
 
   /**
-   * Set the name for the new contact type based on information from the old one.
+   * Set the name for the new contact type based on information from the old
+   * one.
    *
    * Any passed in parameters will take preference but if not supplied put
    * existing name data into the organization_name, household_name or
-   * last_name field as relates to the type. The name fields per the previous type
-   * will be nulled.
+   * last_name field as relates to the type. The name fields per the previous
+   * type will be nulled.
    *
    * @param array $params
    * @param array $existingContact
@@ -128,7 +138,12 @@ class CRM_Contacteditor_ChangeContactType {
     $nameParts = array();
 
     if ($existingContact['contact_type'] === 'Individual') {
-      $nameFields = array('first_name', 'nick_name', 'middle_name', 'last_name');
+      $nameFields = array(
+        'first_name',
+        'nick_name',
+        'middle_name',
+        'last_name',
+      );
       foreach ($nameFields as $nameField) {
         if (!empty($existingContact[$nameField])) {
           $nameParts[$nameField] = $existingContact[$nameField];
@@ -161,15 +176,21 @@ class CRM_Contacteditor_ChangeContactType {
   }
 
   /**
-   * Check if any of the contact's custom fields are invalid for the new contact type.
+   * Check if any of the contact's custom fields are invalid for the new
+   * contact type.
    *
    * @param int $contactID
    * @param string $newContactType
    *
    * @return bool
    */
-  public static function hasCustomFieldsInvalidForNewType($contactID, $oldContactType) {
-
+  public static function hasCustomFieldsInvalidForNewType($contactTypeSpecificCustomFields, $existingContact) {
+    foreach ($contactTypeSpecificCustomFields as $contactTypeSpecificCustomField) {
+      if (!empty($existingContact[$contactTypeSpecificCustomField])) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   /**
@@ -183,7 +204,10 @@ class CRM_Contacteditor_ChangeContactType {
   public static function getCustomFieldsExclusiveToContactType($contactType) {
     if (!isset(Civi::$statics[__CLASS__]['custom_fields'][$contactType])) {
       Civi::$statics[__CLASS__]['custom_fields'][$contactType] = array();
-      $customFields = civicrm_api3('CustomField', 'get', array('custom_group_id.extends' => $contactType, 'return' => 'id'));
+      $customFields = civicrm_api3('CustomField', 'get', array(
+        'custom_group_id.extends' => $contactType,
+        'return' => 'id',
+      ));
       foreach ($customFields['values'] as $customField) {
         Civi::$statics[__CLASS__]['custom_fields'][$contactType][$customField['id']] = 'custom_' . $customField['id'];
       }
@@ -192,7 +216,8 @@ class CRM_Contacteditor_ChangeContactType {
   }
 
   /**
-   * Check if any of the contact's relationships invalid for the new contact type.
+   * Check if any of the contact's relationships invalid for the new contact
+   * type.
    *
    * @param int $contactID
    * @param string $newContactType
@@ -206,7 +231,7 @@ class CRM_Contacteditor_ChangeContactType {
       Civi::$statics[__CLASS__]['relationships']['generic'] = array();
       foreach ($directions as $direction) {
         $genericRelationshipTypes = $relationshipTypes = civicrm_api3('RelationshipType', 'get', array(
-          'contact_type_' . $direction => $newContactType,
+          'contact_type_' . $direction => array('IS NULL' => TRUE),
           'return' => 'id',
         ));
         foreach ($genericRelationshipTypes['values'] as $relationshipType) {
@@ -231,8 +256,8 @@ class CRM_Contacteditor_ChangeContactType {
     foreach ($directions as $direction) {
       $relationships = civicrm_api3('Relationship', 'get', array('contact_id_' . $direction => $contactID));
       foreach ($relationships['values'] as $relationship) {
-        if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationship['id']])
-        && !isset(Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationship['id']])
+        if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationship['relationship_type_id']])
+          && !isset(Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationship['relationship_type_id']])
         ) {
           return TRUE;
         }
@@ -268,9 +293,9 @@ class CRM_Contacteditor_ChangeContactType {
             'IN' => array(
               'email_greeting',
               'postal_greeting',
-              'addressee'
-            )
-          )
+              'addressee',
+            ),
+          ),
         )
       );
 
@@ -278,10 +303,13 @@ class CRM_Contacteditor_ChangeContactType {
         'option_group_id' => array('IN' => array_keys($optionGroups['values'])),
         'is_default' => 1,
         'is_active' => 1,
-        'return' => array('name', 'option_group_id', 'filter','value'),
+        'return' => array('name', 'option_group_id', 'filter', 'value'),
       ));
 
-      $contactTypes = civicrm_api3('ContactType', 'get', array('is_reserved' => 1, 'return' => array('name')));
+      $contactTypes = civicrm_api3('ContactType', 'get', array(
+        'is_reserved' => 1,
+        'return' => array('name'),
+      ));
       foreach ($contactTypes['values'] as $contactTypeID => $contactType) {
         foreach ($optionValues['values'] as $id => $optionValue) {
           $optionGroupName = $optionGroups['values'][$optionValue['option_group_id']]['name'];
