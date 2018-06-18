@@ -30,11 +30,6 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
       ->apply();
   }
 
-  public function setUp() {
-    civicrm_initialize();
-    parent::setUp();
-  }
-
   public function tearDown() {
     parent::tearDown();
   }

@@ -9,6 +9,19 @@
 class BaseUnitTestClass extends \PHPUnit_Framework_TestCase{
 
   protected $_apiversion = 3;
+
+  /**
+   * Set up for tests.
+   */
+  public function setUp() {
+    civicrm_initialize();
+    if (!isset($GLOBALS['_PEAR_default_error_mode'])) {
+      // This is simply to protect against e-notices if globals have been reset by phpunit.
+      $GLOBALS['_PEAR_default_error_mode'] = NULL;
+      $GLOBALS['_PEAR_default_error_options'] = NULL;
+    }
+    parent::setUp();
+  }
   /**
    * wrap api functions.
    * so we can ensure they succeed & throw exceptions without litterering the test with checks
