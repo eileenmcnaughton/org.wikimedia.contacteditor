@@ -144,7 +144,7 @@ function contacteditor_civicrm_summaryActions(&$actions, $contactID) {
       'class' => 'no-popup',
       'ref' => 'change-contact-type',
       'key' => 'change-contact-type',
-      'href' => '/civicrm/contacttypechange?contact_id=' . $contactID
+      'href' => CRM_Utils_System::url('civicrm/contacttypechange', ['contact_id' => $contactID]),
     );
   }
 }
