@@ -41,7 +41,7 @@ class CRM_Contacteditor_ChangeContactType {
       throw new CRM_Core_Exception('You do have not permission to change the contact type');
     }
     $contactTypeSpecificCustomFields = self::getCustomFieldsExclusiveToContactType($existingContactType);
-    $contactTypeSpecificFields = $contactTypeSpecificCustomFields + array(
+    $contactTypeSpecificFields = array_merge($contactTypeSpecificCustomFields, array(
       'birth_date',
       'contact_sub_type',
       'deceased_date',
@@ -58,7 +58,7 @@ class CRM_Contacteditor_ChangeContactType {
       'job_title',
       'legal_name',
       'household_name',
-    );
+    ));
 
     $existingContact = civicrm_api3('Contact', 'getsingle', [
       'id' => $contactID,
