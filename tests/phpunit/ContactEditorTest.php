@@ -60,13 +60,21 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
     $contactb = civicrm_api3('Contact', 'create', array('contact_type' => 'Organization', 'organization_name' => 'Just an Org', 'email' => 'anorg@example.com'));
     $this->mockLoggedInUser();
 
-    $this->callAPISuccess('RelationshipType', 'create', array(
+    $params = [
       'name_a_b' => 'contact of',
       'name_b_a' => 'contact to',
+    ];
+    // This should be removed by transaction rollback but we can try to reduce the pain.
+    $exists = $this->callAPISuccess('RelationshipType', 'get', $params);
+    if (!empty($exists['id'])) {
+      $params['id'] = $exists['id'];
+    }
+
+    $this->callAPISuccess('RelationshipType', 'create', array_merge($params, array(
       'contact_type_a' => 'null',
       'contact_type_b' => 'null',
       'api.relationship.create' => array('contact_id_a' => $contacta['id'], 'contact_id_b' => $contactb['id'])
-    ));
+    )));
     // Clear cache.
     unset(\Civi::$statics['CRM_Contacteditor_ChangeContactType']);
 
