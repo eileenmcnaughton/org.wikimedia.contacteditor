@@ -25,3 +25,5 @@ if the api does not receive name & greeting fields they are computed:
 ignore membership issues - since it is the relationship that would
 make the conversion invalid.
 
+**Installation**
+- After installing, grant the 'Change CiviCRM contact type' permission to appropriate roles
