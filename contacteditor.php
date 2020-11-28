@@ -143,9 +143,9 @@ function contacteditor_civicrm_permission(&$permissions) {
 
 function contacteditor_civicrm_summaryActions(&$actions, $contactID) {
   if (CRM_Core_Permission::check('Change CiviCRM contact type')) {
-    $actions['casework'] = [
+    $actions['change_type'] = [
       'title' => 'Change Contact Type',
-      'weight' => 999,
+      'weight' => 901,
       'class' => 'no-popup',
       'ref' => 'change-contact-type',
       'key' => 'change-contact-type',
