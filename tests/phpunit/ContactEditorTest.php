@@ -1,5 +1,6 @@
 <?php
 
+use Civi\Test\CiviEnvBuilder;
 use CRM_Contacteditor_ExtensionUtil as E;
 use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
@@ -22,16 +23,12 @@ require_once __DIR__ . '/BaseUnitTestClass.php';
  */
 class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, HookInterface, TransactionalInterface {
 
-  public function setUpHeadless() {
+  public function setUpHeadless(): CiviEnvBuilder {
     // Civi\Test has many helpers, like install(), uninstall(), sql(), and sqlFile().
     // See: https://github.com/civicrm/org.civicrm.testapalooza/blob/master/civi-test.md
     return \Civi\Test::headless()
       ->installMe(__DIR__)
       ->apply();
-  }
-
-  public function tearDown() {
-    parent::tearDown();
   }
 
   /**

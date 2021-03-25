@@ -13,13 +13,8 @@ class BaseUnitTestClass extends \PHPUnit\Framework\TestCase{
   /**
    * Set up for tests.
    */
-  public function setUp() {
+  public function setUp(): void {
     civicrm_initialize();
-    if (!isset($GLOBALS['_PEAR_default_error_mode'])) {
-      // This is simply to protect against e-notices if globals have been reset by phpunit.
-      $GLOBALS['_PEAR_default_error_mode'] = NULL;
-      $GLOBALS['_PEAR_default_error_options'] = NULL;
-    }
     parent::setUp();
   }
   /**
