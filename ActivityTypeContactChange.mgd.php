@@ -3,6 +3,7 @@ return [
   0 => [
     'name' => 'Contact Type Changed',
     'entity' => 'OptionValue',
+    'cleanup' => 'never',
     'params' => [
       'version' => 3,
       'option_group_id' => 'activity_type',
