@@ -143,15 +143,15 @@ function contacteditor_civicrm_permission(&$permissions) {
 
 function contacteditor_civicrm_summaryActions(&$actions, $contactID) {
   if (CRM_Core_Permission::check('Change CiviCRM contact type')) {
-    $actions['otherActions']['change contact type'] = array(
+    $actions['otherActions']['change_contact_type'] = [
       'title' => 'Change Contact Type',
-      'weight' => 999,
+      'weight' => 901,
       'class' => 'no-popup',
       'ref' => 'change-contact-type',
       'key' => 'change-contact-type',
       'href' => CRM_Utils_System::url('civicrm/contacttypechange', ['contact_id' => $contactID]),
       'icon' => 'crm-i fa-exchange',
-    );
+    ];
   }
 }
 
