@@ -43,8 +43,8 @@ function contacteditor_civicrm_enable() {
  */
 function contacteditor_civicrm_permission(&$permissions) {
   $permissions['Change CiviCRM contact type'] = [
-    E::ts('Change CiviCRM contact type'),
-    E::ts('Permits changing a contact type. This may result in data loss if the new type does not support all data of the old type.'),
+    'label' => E::ts('Change CiviCRM contact type'),
+    'description' => E::ts('Permits changing a contact type. This may result in data loss if the new type does not support all data of the old type.'),
   ];
 }
 
