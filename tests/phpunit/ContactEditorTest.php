@@ -1,12 +1,12 @@
 <?php
 
+use Civi\Test\Api3TestTrait;
 use Civi\Test\CiviEnvBuilder;
-use CRM_Contacteditor_ExtensionUtil as E;
 use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
 use Civi\Test\TransactionalInterface;
+use PHPUnit\Framework\TestCase;
 
-require_once __DIR__ . '/BaseUnitTestClass.php';
 /**
  * FIXME - Add test description.
  *
@@ -21,7 +21,9 @@ require_once __DIR__ . '/BaseUnitTestClass.php';
  *
  * @group headless
  */
-class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, HookInterface, TransactionalInterface {
+class ContactEditorTest extends TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
+
+  use Api3TestTrait;
 
   public function setUpHeadless(): CiviEnvBuilder {
     // Civi\Test has many helpers, like install(), uninstall(), sql(), and sqlFile().
@@ -53,8 +55,8 @@ class ContactEditorTest extends BaseUnitTestClass implements HeadlessInterface, 
    * Test that the all-contacts to all contacts relationship type does not block change.
    */
   public function testValidContactChangeWithChangeableRelationship() {
-    $contacta = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
-    $contactb = civicrm_api3('Contact', 'create', array('contact_type' => 'Organization', 'organization_name' => 'Just an Org', 'email' => 'anorg@example.com'));
+    $contacta = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com']);
+    $contactb = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Just an Org', 'email' => 'anorg@example.com']);
     $this->mockLoggedInUser();
 
     $params = [
