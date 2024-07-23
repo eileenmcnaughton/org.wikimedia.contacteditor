@@ -37,16 +37,16 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
    * Example: Test that a version is returned.
    */
   public function testValidContactChange() {
-    $contact = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com']);
     $this->mockLoggedInUser();
 
-    CRM_Core_Config::singleton()->userPermissionClass->permissions = array('Change CiviCRM contact type', 'access CiviCRM', 'edit all contacts');
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['Change CiviCRM contact type', 'access CiviCRM', 'edit all contacts'];
 
-    $this->callAPISuccess('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id']));
+    $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'id' => $contact['id']]);
 
-    $contact = $this->callAPISuccess('Contact', 'getsingle', array('id' => $contact['id'], 'return' => 'addressee'));
+    $contact = $this->callAPISuccessGetSingle('Contact', ['id' => $contact['id'], 'return' => 'addressee']);
     $this->assertEquals('Really an Org', $contact['addressee_display']);
-    $activity = $this->callAPISuccessGetSingle('Activity', array('target_contact_id' => $contact['id']));
+    $activity = $this->callAPISuccessGetSingle('Activity', ['target_contact_id' => $contact['id']]);
     $this->assertEquals('Data lost by the change : first_name -> Really an Org', $activity['details']);
     $this->assertEquals('Contact type changed from Individual to Organization', $activity['subject']);
   }
@@ -69,26 +69,29 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
       $params['id'] = $exists['id'];
     }
 
-    $this->callAPISuccess('RelationshipType', 'create', array_merge($params, array(
+    $this->callAPISuccess('RelationshipType', 'create', array_merge($params, [
       'contact_type_a' => 'null',
       'contact_type_b' => 'null',
-      'api.relationship.create' => array('contact_id_a' => $contacta['id'], 'contact_id_b' => $contactb['id'])
-    )));
+      'api.relationship.create' => ['contact_id_a' => $contacta['id'], 'contact_id_b' => $contactb['id']],
+    ]));
     // Clear cache.
     unset(\Civi::$statics['CRM_Contacteditor_ChangeContactType']);
 
-    $this->callAPISuccess('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contacta['id']));
-
+    $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'id' => $contacta['id']]);
   }
+
   /**
    * Example: Test that a version is returned.
    */
   public function testNoPermissionForContactChange() {
-    $contact = civicrm_api3('Contact', 'create', array('contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com'));
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Individual', 'first_name' => 'Really an Org', 'email' => 'arealliveperson@example.com']);
 
-    CRM_Core_Config::singleton()->userPermissionClass->permissions = array();
-    $this->callAPIFailure('Contact', 'create', array('contact_type' => 'Organization', 'id' => $contact['id'], 'check_permissions' => 1
-    ), 'You do have not permission to change the contact type');
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = [];
+    $this->callAPIFailure('Contact', 'create', [
+      'contact_type' => 'Organization',
+      'id' => $contact['id'],
+      'check_permissions' => 1,
+    ], 'You do have not permission to change the contact type');
   }
 
   /**
