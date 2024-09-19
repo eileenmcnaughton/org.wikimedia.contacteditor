@@ -73,7 +73,7 @@ class CRM_Contacteditor_Form_ContactTypeChange extends CRM_Core_Form {
       civicrm_api3('Contact', 'create', $params);
       CRM_Core_Session::setStatus(E::ts('Contact type updated'));
     }
-    catch (CiviCRM_API3_Exception $e) {
+    catch (CRM_Core_Exception $e) {
       CRM_Core_Session::setStatus($e->getMessage(), E::ts('Contact type not changed'));
     }
     parent::postProcess();
