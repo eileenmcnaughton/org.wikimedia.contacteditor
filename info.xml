@@ -14,30 +14,32 @@
     <url desc="Support">https://github.com/eileenmcnaughton/org.wikimedia.contacteditor</url>
     <url desc="Licensing">http://www.gnu.org/licenses/agpl-3.0.html</url>
   </urls>
-  <releaseDate>2024-05-04</releaseDate>
-  <version>2.7</version>
+  <releaseDate>2026-06-09</releaseDate>
+  <version>2.8</version>
   <develStage>stable</develStage>
   <compatibility>
-    <ver>6.0</ver>
+    <ver>6.10</ver>
   </compatibility>
   <smarty_compatibility>
-    <ver>6.0</ver>
+    <ver>5</ver>
   </smarty_compatibility>
   <php_compatibility>
     <ver>8.1</ver>
     <ver>8.2</ver>
     <ver>8.3</ver>
     <ver>8.4</ver>
+    <ver>8.5</ver>
   </php_compatibility>
   <comments>Allows contacts to have their contact types changed.</comments>
   <civix>
     <namespace>CRM/Contacteditor</namespace>
-    <format>25.01.1</format>
+    <format>25.10.2</format>
   </civix>
   <mixins>
     <mixin>menu-xml@1.0.0</mixin>
-    <mixin>mgd-php@1.0.0</mixin>
+    <mixin>mgd-php@2.0.0</mixin>
     <mixin>smarty@1.0.3</mixin>
+    <mixin>scan-classes@1.0.0</mixin>
   </mixins>
   <classloader>
     <psr0 prefix="CRM_" path="."/>
