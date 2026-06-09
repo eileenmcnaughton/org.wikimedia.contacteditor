@@ -101,10 +101,10 @@ class CRM_Contacteditor_ChangeContactType {
     civicrm_api3('Activity', 'create', array(
       'target_contact_id' => $contactID,
       'activity_type_id' => 'contact_type_changed',
-      'subject' => E::ts('Contact type changed from %1 to %2', array(
-        $existingContactType,
-        $newContactType,
-      )),
+      'subject' => E::ts('Contact type changed from %1 to %2', [
+        1 => $existingContactType,
+        2 => $newContactType,
+      ]),
       'details' => empty($details) ? '' : E::ts('Data lost by the change : ') . implode(', ', $details),
     ));
     $apiRequest->setApiRequest($request);
