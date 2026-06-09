@@ -37,11 +37,11 @@ class CRM_Contacteditor_ChangeContactType {
     if ($existingContactType === $newContactType) {
       return;
     }
-    if (!empty($request['params']['check_permissions']) && !CRM_Core_Permission::check(array('Change CiviCRM contact type'))) {
+    if (!empty($request['params']['check_permissions']) && !CRM_Core_Permission::check(['Change CiviCRM contact type'])) {
       throw new CRM_Core_Exception('You do have not permission to change the contact type');
     }
     $contactTypeSpecificCustomFields = self::getCustomFieldsExclusiveToContactType($existingContactType);
-    $contactTypeSpecificFields = array_merge($contactTypeSpecificCustomFields, array(
+    $contactTypeSpecificFields = array_merge($contactTypeSpecificCustomFields, [
       'birth_date',
       'contact_sub_type',
       'deceased_date',
@@ -58,7 +58,7 @@ class CRM_Contacteditor_ChangeContactType {
       'job_title',
       'legal_name',
       'household_name',
-    ));
+    ]);
 
     $existingContact = civicrm_api3('Contact', 'getsingle', [
       'id' => $contactID,
@@ -89,7 +89,7 @@ class CRM_Contacteditor_ChangeContactType {
       throw new CRM_Core_Exception(E::ts('The contact has one or more relationships that are not valid for the new type'));
     }
     $nullableFields = array_intersect_key($existingContact, array_flip($contactTypeSpecificFields));
-    $details = array();
+    $details = [];
     foreach (array_keys($nullableFields) as $nullableField) {
       $params[$nullableField] = 'null';
       if (!empty($existingContact[$nullableField])) {
@@ -98,7 +98,7 @@ class CRM_Contacteditor_ChangeContactType {
     }
 
     self::adjustFieldsForContactTypeChange($request['params'], $existingContact);
-    civicrm_api3('Activity', 'create', array(
+    civicrm_api3('Activity', 'create', [
       'target_contact_id' => $contactID,
       'activity_type_id' => 'contact_type_changed',
       'subject' => E::ts('Contact type changed from %1 to %2', [
@@ -106,7 +106,7 @@ class CRM_Contacteditor_ChangeContactType {
         2 => $newContactType,
       ]),
       'details' => empty($details) ? '' : E::ts('Data lost by the change : ') . implode(', ', $details),
-    ));
+    ]);
     $apiRequest->setApiRequest($request);
   }
 
@@ -135,15 +135,15 @@ class CRM_Contacteditor_ChangeContactType {
    *   Relevant values from saved contact.
    */
   public static function setNamesForContactType(&$params, $existingContact) {
-    $nameParts = array();
+    $nameParts = [];
 
     if ($existingContact['contact_type'] === 'Individual') {
-      $nameFields = array(
+      $nameFields = [
         'first_name',
         'nick_name',
         'middle_name',
         'last_name',
-      );
+      ];
       foreach ($nameFields as $nameField) {
         if (!empty($existingContact[$nameField])) {
           $nameParts[$nameField] = $existingContact[$nameField];
@@ -203,11 +203,11 @@ class CRM_Contacteditor_ChangeContactType {
    */
   public static function getCustomFieldsExclusiveToContactType($contactType) {
     if (!isset(Civi::$statics[__CLASS__]['custom_fields'][$contactType])) {
-      Civi::$statics[__CLASS__]['custom_fields'][$contactType] = array();
-      $customFields = civicrm_api3('CustomField', 'get', array(
+      Civi::$statics[__CLASS__]['custom_fields'][$contactType] = [];
+      $customFields = civicrm_api3('CustomField', 'get', [
         'custom_group_id.extends' => $contactType,
         'return' => 'id',
-      ));
+      ]);
       foreach ($customFields['values'] as $customField) {
         Civi::$statics[__CLASS__]['custom_fields'][$contactType][$customField['id']] = 'custom_' . $customField['id'];
       }
@@ -225,15 +225,15 @@ class CRM_Contacteditor_ChangeContactType {
    * @return bool
    */
   public static function hasRelationshipsInvalidForNewType($contactID, $newContactType) {
-    $directions = array('a', 'b');
+    $directions = ['a', 'b'];
 
     if (!isset(Civi::$statics[__CLASS__]['relationships']['generic'])) {
-      Civi::$statics[__CLASS__]['relationships']['generic'] = array();
+      Civi::$statics[__CLASS__]['relationships']['generic'] = [];
       foreach ($directions as $direction) {
-        $genericRelationshipTypes = $relationshipTypes = civicrm_api3('RelationshipType', 'get', array(
-          'contact_type_' . $direction => array('IS NULL' => TRUE),
+        $genericRelationshipTypes = $relationshipTypes = civicrm_api3('RelationshipType', 'get', [
+          'contact_type_' . $direction => ['IS NULL' => TRUE],
           'return' => 'id',
-        ));
+        ]);
         foreach ($genericRelationshipTypes['values'] as $relationshipType) {
           Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationshipType['id']] = TRUE;
         }
@@ -241,12 +241,12 @@ class CRM_Contacteditor_ChangeContactType {
     }
 
     if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType])) {
-      Civi::$statics[__CLASS__]['relationships'][$newContactType] = array();
+      Civi::$statics[__CLASS__]['relationships'][$newContactType] = [];
       foreach ($directions as $direction) {
-        $relationshipTypes = civicrm_api3('RelationshipType', 'get', array(
+        $relationshipTypes = civicrm_api3('RelationshipType', 'get', [
           'contact_type_' . $direction => $newContactType,
           'return' => 'id',
-        ));
+        ]);
         foreach ($relationshipTypes['values'] as $relationshipType) {
           Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationshipType['id']] = TRUE;
         }
@@ -254,7 +254,7 @@ class CRM_Contacteditor_ChangeContactType {
     }
 
     foreach ($directions as $direction) {
-      $relationships = civicrm_api3('Relationship', 'get', array('contact_id_' . $direction => $contactID));
+      $relationships = civicrm_api3('Relationship', 'get', ['contact_id_' . $direction => $contactID]);
       foreach ($relationships['values'] as $relationship) {
         if (!isset(Civi::$statics[__CLASS__]['relationships'][$newContactType][$direction][$relationship['relationship_type_id']])
           && !isset(Civi::$statics[__CLASS__]['relationships']['generic'][$direction][$relationship['relationship_type_id']])
@@ -286,30 +286,30 @@ class CRM_Contacteditor_ChangeContactType {
   public static function getDefaultGreetingsForContactType($contactTypeToRetrieve) {
 
     if (!isset(Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve])) {
-      Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve] = array();
+      Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve] = [];
 
-      $optionGroups = civicrm_api3('OptionGroup', 'get', array(
-          'name' => array(
-            'IN' => array(
+      $optionGroups = civicrm_api3('OptionGroup', 'get', [
+          'name' => [
+            'IN' => [
               'email_greeting',
               'postal_greeting',
               'addressee',
-            ),
-          ),
-        )
+            ],
+          ],
+        ]
       );
 
-      $optionValues = civicrm_api3('OptionValue', 'get', array(
-        'option_group_id' => array('IN' => array_keys($optionGroups['values'])),
+      $optionValues = civicrm_api3('OptionValue', 'get', [
+        'option_group_id' => ['IN' => array_keys($optionGroups['values'])],
         'is_default' => 1,
         'is_active' => 1,
-        'return' => array('name', 'option_group_id', 'filter', 'value'),
-      ));
+        'return' => ['name', 'option_group_id', 'filter', 'value'],
+      ]);
 
-      $contactTypes = civicrm_api3('ContactType', 'get', array(
+      $contactTypes = civicrm_api3('ContactType', 'get', [
         'is_reserved' => 1,
-        'return' => array('name'),
-      ));
+        'return' => ['name'],
+      ]);
       foreach ($contactTypes['values'] as $contactTypeID => $contactType) {
         foreach ($optionValues['values'] as $id => $optionValue) {
           $optionGroupName = $optionGroups['values'][$optionValue['option_group_id']]['name'];
