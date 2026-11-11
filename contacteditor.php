@@ -10,11 +10,11 @@ use CRM_Contacteditor_ExtensionUtil as E;
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_config
  */
 function contacteditor_civicrm_config(&$config) {
-  Civi::dispatcher()
-    ->addListener('civi.api.prepare', [
-      'CRM_Contacteditor_ChangeContactType',
-      'validate',
-    ], -100);
+  // hook_civicrm_config can run more than once per dispatcher, and a re-init creates a new one.
+  $listener = ['CRM_Contacteditor_ChangeContactType', 'validate'];
+  if (!in_array($listener, Civi::dispatcher()->getListeners('civi.api.prepare'), TRUE)) {
+    Civi::dispatcher()->addListener('civi.api.prepare', $listener, -100);
+  }
   _contacteditor_civix_civicrm_config($config);
 }
 

@@ -2,6 +2,7 @@
 
 use Civi\Test\Api3TestTrait;
 use Civi\Test\CiviEnvBuilder;
+use Civi\Test\FormTrait;
 use Civi\Test\HeadlessInterface;
 use Civi\Test\HookInterface;
 use Civi\Test\TransactionalInterface;
@@ -24,6 +25,7 @@ use PHPUnit\Framework\TestCase;
 class ContactEditorTest extends TestCase implements HeadlessInterface, HookInterface, TransactionalInterface {
 
   use Api3TestTrait;
+  use FormTrait;
 
   public function setUpHeadless(): CiviEnvBuilder {
     // Civi\Test has many helpers, like install(), uninstall(), sql(), and sqlFile().
@@ -37,6 +39,7 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
   public function setUp(): void {
     parent::setUp();
     unset(\Civi::$statics['CRM_Contacteditor_ChangeContactType']);
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = NULL;
   }
 
   /**
@@ -309,6 +312,83 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
 
     $this->changeType($individual['id'], ['contact_type' => 'Organization']);
     $this->assertEquals('Organization', $this->callAPISuccessGetValue('Contact', ['id' => $individual['id'], 'return' => 'contact_type']));
+  }
+
+  /**
+   * Test that an employer id left without its relationship is cleared with the other individual fields.
+   */
+  public function testStaleEmployerIsCleared() {
+    $employer = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Old employer']);
+    $person = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Individual', 'first_name' => 'Ex', 'last_name' => 'Employee']);
+    CRM_Core_DAO::setFieldValue('CRM_Contact_DAO_Contact', $person['id'], 'employer_id', $employer['id']);
+    $this->changeType($person['id'], ['contact_type' => 'Organization']);
+
+    $this->assertNull(CRM_Core_DAO::getFieldValue('CRM_Contact_DAO_Contact', $person['id'], 'employer_id'));
+  }
+
+  /**
+   * Test that a change without a logged in user is recorded as by the domain contact.
+   */
+  public function testChangeWithoutLoggedInUser() {
+    CRM_Core_Session::singleton()->set('userID', NULL);
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Acme Ltd']);
+    $this->callAPISuccess('Contact', 'create', ['id' => $contact['id'], 'contact_type' => 'Individual']);
+
+    $source = \Civi\Api4\ActivityContact::get(FALSE)
+      ->addSelect('contact_id')
+      ->addWhere('activity_id.activity_type_id:name', '=', 'contact_type_changed')
+      ->addWhere('activity_id.target_contact_id', 'CONTAINS', $contact['id'])
+      ->addWhere('record_type_id:name', '=', 'Activity Source')
+      ->execute()->single();
+    $this->assertEquals(CRM_Core_BAO_Domain::getDomain()->contact_id, $source['contact_id']);
+  }
+
+  /**
+   * Test that running hook_civicrm_config again does not add a second listener.
+   */
+  public function testListenerIsRegisteredOnce() {
+    $listener = ['CRM_Contacteditor_ChangeContactType', 'validate'];
+    $config = CRM_Core_Config::singleton();
+    contacteditor_civicrm_config($config);
+    contacteditor_civicrm_config($config);
+    $this->assertCount(1, array_keys(Civi::dispatcher()->getListeners('civi.api.prepare'), $listener, TRUE));
+
+    // A dispatcher without the listener, as after a re-init, gets it again.
+    Civi::dispatcher()->removeListener('civi.api.prepare', $listener);
+    contacteditor_civicrm_config($config);
+    $this->assertCount(1, array_keys(Civi::dispatcher()->getListeners('civi.api.prepare'), $listener, TRUE));
+  }
+
+  /**
+   * Test that the form names the contact, escaped, and changes the type.
+   */
+  public function testFormChangesType() {
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => '<b>Acme</b>']);
+    $this->mockLoggedInUser();
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['access CiviCRM', 'Change CiviCRM contact type', 'view all contacts', 'edit all contacts', 'add contacts'];
+
+    $form = $this->getTestForm('CRM_Contacteditor_Form_ContactTypeChange', ['contact_type' => 'Individual'], ['contact_id' => $contact['id']])->processForm();
+    $this->assertEquals('Change contact type for &lt;b&gt;Acme&lt;/b&gt;', $form->getTemplateVariable('introText'));
+    $this->assertEquals('Individual', $this->callAPISuccessGetValue('Contact', ['id' => $contact['id'], 'return' => 'contact_type']));
+  }
+
+  /**
+   * Test that the form refuses contacts the user may not edit.
+   */
+  public function testFormRespectsContactPermissions() {
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Acme Ltd']);
+    $this->mockLoggedInUser();
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['access CiviCRM', 'Change CiviCRM contact type'];
+    CRM_Core_Session::singleton()->getStatus(TRUE);
+
+    try {
+      $this->getTestForm('CRM_Contacteditor_Form_ContactTypeChange', ['contact_type' => 'Individual'], ['contact_id' => $contact['id']])->processForm();
+      $this->fail('The form should redirect a user without edit permission.');
+    }
+    catch (CRM_Core_Exception_PrematureExitException $e) {
+      $this->assertStringContainsString('You do not have permission to edit this contact.', CRM_Core_Session::singleton()->getStatus(TRUE)[0]['text'] ?? '');
+    }
+    $this->assertEquals('Organization', $this->callAPISuccessGetValue('Contact', ['id' => $contact['id'], 'return' => 'contact_type']));
   }
 
   /**

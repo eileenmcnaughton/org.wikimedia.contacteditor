@@ -117,6 +117,8 @@ class CRM_Contacteditor_ChangeContactType {
       $request['params'][$field] = 'null';
     }
     civicrm_api3('Activity', 'create', [
+      // Changes without a logged in user, e.g. from scheduled jobs, are recorded as by the domain contact.
+      'source_contact_id' => CRM_Core_Session::getLoggedInContactID() ?: CRM_Core_BAO_Domain::getDomain()->contact_id,
       'target_contact_id' => $contactID,
       'activity_type_id' => 'contact_type_changed',
       'subject' => E::ts('Contact type changed from %1 to %2', [
