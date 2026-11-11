@@ -29,6 +29,15 @@ class CRM_Contacteditor_ChangeContactType {
   ];
 
   /**
+   * Custom greeting text per greeting id field.
+   */
+  const GREETING_CUSTOM_FIELDS = [
+    'email_greeting_id' => 'email_greeting_custom',
+    'postal_greeting_id' => 'postal_greeting_custom',
+    'addressee_id' => 'addressee_custom',
+  ];
+
+  /**
    * Validate whether the contact type is being changed and if so whether it is
    * permitted.
    *
@@ -61,7 +70,7 @@ class CRM_Contacteditor_ChangeContactType {
     $oldTypeFields = self::TYPE_SPECIFIC_FIELDS[$existingContactType] ?? [];
     // APIv3 Contact.get does not return primary_contact_id.
     $existingContact = \Civi\Api4\Contact::get(FALSE)
-      ->setSelect(array_merge($oldTypeFields, ['contact_sub_type', 'is_deceased', 'deceased_date', 'display_name']))
+      ->setSelect(array_merge($oldTypeFields, self::GREETING_CUSTOM_FIELDS, ['contact_sub_type', 'is_deceased', 'deceased_date', 'display_name']))
       ->addWhere('id', '=', $contactID)
       ->execute()
       ->single();
@@ -94,6 +103,12 @@ class CRM_Contacteditor_ChangeContactType {
     foreach ($clearedFields as $field) {
       if (isset($existingContact[$field]) && $existingContact[$field] !== '') {
         $details[] = $field . ' -> ' . $existingContact[$field];
+      }
+    }
+    // Core drops the custom text unless the request passes one.
+    foreach (self::GREETING_CUSTOM_FIELDS as $customField) {
+      if (self::isFilled($existingContact[$customField]) && ($request['params'][$customField] ?? NULL) !== $existingContact[$customField]) {
+        $details[] = $customField . ' -> ' . $existingContact[$customField];
       }
     }
 
@@ -269,14 +284,17 @@ class CRM_Contacteditor_ChangeContactType {
   }
 
   /**
-   * Set the defaults of the new type for the greetings.
+   * Set the defaults of the new type for the greetings the request leaves out.
    *
    * @param array $params
    */
   public static function setDefaultGreetingsForContactType(&$params) {
-    foreach (['email_greeting', 'postal_greeting', 'addressee'] as $greeting) {
-      // 'null' clears a greeting the new type has no default for, e.g. an organization's postal greeting.
-      $params[$greeting . '_id'] = CRM_Contact_BAO_Contact_Utils::defaultGreeting($params['contact_type'], $greeting) ?? 'null';
+    foreach (self::GREETING_CUSTOM_FIELDS as $idField => $customField) {
+      // Core derives the Customized id from a passed custom text.
+      if (!self::isFilled($params[$idField] ?? NULL) && !self::isFilled($params[$customField] ?? NULL)) {
+        // 'null' clears a greeting the new type has no default for, e.g. an organization's postal greeting.
+        $params[$idField] = CRM_Contact_BAO_Contact_Utils::defaultGreeting($params['contact_type'], substr($idField, 0, -3)) ?? 'null';
+      }
     }
   }
 }

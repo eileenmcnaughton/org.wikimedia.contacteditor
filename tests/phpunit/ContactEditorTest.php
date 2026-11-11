@@ -80,6 +80,53 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
   }
 
   /**
+   * Test that greetings passed with the change are kept.
+   */
+  public function testPassedGreetingIsKept() {
+    $greeting = $this->callAPISuccessGetValue('OptionValue', ['option_group_id' => 'email_greeting', 'is_default' => 0, 'filter' => 1, 'options' => ['limit' => 1], 'return' => 'value']);
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Acme Ltd']);
+    $this->changeType($contact['id'], ['contact_type' => 'Individual', 'email_greeting_id' => $greeting]);
+
+    $this->assertEquals($greeting, $this->callAPISuccessGetValue('Contact', ['id' => $contact['id'], 'return' => 'email_greeting_id']));
+  }
+
+  /**
+   * Test that a custom greeting text, with or without the Customized id, can be passed with the change.
+   *
+   * @dataProvider withIdProvider
+   */
+  public function testPassedCustomGreetingIsKept(bool $withId) {
+    $customized = $this->callAPISuccessGetValue('OptionValue', ['option_group_id' => 'addressee', 'name' => 'Customized', 'return' => 'value']);
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Acme Ltd']);
+    $this->changeType($contact['id'], ['contact_type' => 'Individual', 'addressee_custom' => 'Dr. Jane Example'] + ($withId ? ['addressee_id' => $customized] : []));
+
+    // APIv3 Contact.get does not return addressee_custom.
+    $contact = \Civi\Api4\Contact::get(FALSE)->addSelect('addressee_id', 'addressee_custom')->addWhere('id', '=', $contact['id'])->execute()->single();
+    $this->assertEquals($customized, $contact['addressee_id']);
+    $this->assertEquals('Dr. Jane Example', $contact['addressee_custom']);
+  }
+
+  /**
+   * Test that a custom greeting text dropped by the change is recorded in the activity.
+   *
+   * @dataProvider withIdProvider
+   */
+  public function testDroppedCustomGreetingIsRecorded(bool $withId) {
+    $customized = $this->callAPISuccessGetValue('OptionValue', ['option_group_id' => 'addressee', 'name' => 'Customized', 'return' => 'value']);
+    $default = $this->callAPISuccessGetValue('OptionValue', ['option_group_id' => 'addressee', 'is_default' => 1, 'filter' => 1, 'return' => 'value']);
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Acme Ltd', 'addressee_id' => $customized, 'addressee_custom' => 'The Acme team']);
+    $this->changeType($contact['id'], ['contact_type' => 'Individual'] + ($withId ? ['addressee_id' => $default] : []));
+
+    $details = $this->callAPISuccessGetValue('Activity', ['target_contact_id' => $contact['id'], 'activity_type_id' => 'contact_type_changed', 'return' => 'details']);
+    $this->assertStringContainsString('addressee_custom -> The Acme team', $details);
+    $this->assertNull(\Civi\Api4\Contact::get(FALSE)->addSelect('addressee_custom')->addWhere('id', '=', $contact['id'])->execute()->single()['addressee_custom']);
+  }
+
+  public function withIdProvider(): array {
+    return ['without id' => [FALSE], 'with id' => [TRUE]];
+  }
+
+  /**
    * Test that the all-contacts to all contacts relationship type does not block change.
    */
   public function testValidContactChangeWithChangeableRelationship() {
