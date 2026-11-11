@@ -267,65 +267,14 @@ class CRM_Contacteditor_ChangeContactType {
   }
 
   /**
-   * Get the default details for selected type
+   * Set the defaults of the new type for the greetings.
    *
-   * @param array
+   * @param array $params
    */
   public static function setDefaultGreetingsForContactType(&$params) {
-    $contactType = $params['contact_type'];
-    foreach (self::getDefaultGreetingsForContactType($contactType) as $key => $value) {
-      $params[$key] = $value;
+    foreach (['email_greeting', 'postal_greeting', 'addressee'] as $greeting) {
+      // 'null' clears a greeting the new type has no default for, e.g. an organization's postal greeting.
+      $params[$greeting . '_id'] = CRM_Contact_BAO_Contact_Utils::defaultGreeting($params['contact_type'], $greeting) ?? 'null';
     }
-  }
-
-  /**
-   * Get the default details for selected type
-   *
-   * @param array
-   */
-  public static function getDefaultGreetingsForContactType($contactTypeToRetrieve) {
-
-    if (!isset(Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve])) {
-      Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve] = [];
-
-      $optionGroups = civicrm_api3('OptionGroup', 'get', [
-          'name' => [
-            'IN' => [
-              'email_greeting',
-              'postal_greeting',
-              'addressee',
-            ],
-          ],
-        ]
-      );
-
-      $optionValues = civicrm_api3('OptionValue', 'get', [
-        'option_group_id' => ['IN' => array_keys($optionGroups['values'])],
-        'is_default' => 1,
-        'is_active' => 1,
-        'return' => ['name', 'option_group_id', 'filter', 'value'],
-      ]);
-
-      $contactTypes = civicrm_api3('ContactType', 'get', [
-        'is_reserved' => 1,
-        'return' => ['name'],
-      ]);
-      foreach ($contactTypes['values'] as $contactTypeID => $contactType) {
-        foreach ($optionValues['values'] as $id => $optionValue) {
-          $optionGroupName = $optionGroups['values'][$optionValue['option_group_id']]['name'];
-          $keyName = $optionGroupName . '_id';
-
-          // If there is no value - e.g Organization does not by default have a postal_greeting then
-          // setting to null will clear it out.
-          Civi::$statics[__CLASS__]['greetings'][$contactType['name']][$keyName] ??= 'null';
-
-          if (empty($optionValue['filter']) || $optionValue['filter'] == $contactTypeID) {
-            Civi::$statics[__CLASS__]['greetings'][$contactType['name']][$keyName] = $optionValue['value'];
-          }
-        }
-      }
-    }
-
-    return Civi::$statics[__CLASS__]['greetings'][$contactTypeToRetrieve];
   }
 }
