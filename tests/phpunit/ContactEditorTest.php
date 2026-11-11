@@ -52,6 +52,28 @@ class ContactEditorTest extends TestCase implements HeadlessInterface, HookInter
   }
 
   /**
+   * Test that an organization changed to an individual gets the individual default greetings.
+   */
+  public function testChangeToIndividualSetsDefaultGreetings() {
+    $contact = $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Organization', 'organization_name' => 'Really a person']);
+    $this->mockLoggedInUser();
+    CRM_Core_Config::singleton()->userPermissionClass->permissions = ['Change CiviCRM contact type', 'access CiviCRM', 'edit all contacts'];
+
+    $this->callAPISuccess('Contact', 'create', ['contact_type' => 'Individual', 'id' => $contact['id'], 'first_name' => 'Really', 'last_name' => 'Person']);
+
+    $contact = $this->callAPISuccessGetSingle('Contact', ['id' => $contact['id'], 'return' => ['email_greeting_id', 'postal_greeting_id', 'addressee_id']]);
+    foreach (['email_greeting', 'postal_greeting', 'addressee'] as $greeting) {
+      $default = $this->callAPISuccessGetValue('OptionValue', [
+        'option_group_id' => $greeting,
+        'is_default' => 1,
+        'filter' => 1,
+        'return' => 'value',
+      ]);
+      $this->assertEquals($default, $contact[$greeting . '_id'], $greeting);
+    }
+  }
+
+  /**
    * Test that the all-contacts to all contacts relationship type does not block change.
    */
   public function testValidContactChangeWithChangeableRelationship() {

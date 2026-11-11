@@ -317,7 +317,7 @@ class CRM_Contacteditor_ChangeContactType {
 
           // If there is no value - e.g Organization does not by default have a postal_greeting then
           // setting to null will clear it out.
-          Civi::$statics[__CLASS__]['greetings'][$contactType['name']][$keyName] = 'null';
+          Civi::$statics[__CLASS__]['greetings'][$contactType['name']][$keyName] ??= 'null';
 
           if (empty($optionValue['filter']) || $optionValue['filter'] == $contactTypeID) {
             Civi::$statics[__CLASS__]['greetings'][$contactType['name']][$keyName] = $optionValue['value'];
