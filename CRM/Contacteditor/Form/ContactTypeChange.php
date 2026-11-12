@@ -34,8 +34,11 @@ class CRM_Contacteditor_Form_ContactTypeChange extends CRM_Core_Form {
     $this->setAction(CRM_Core_Action::UPDATE);
     $this->contactID = CRM_Utils_Request::retrieveValue('contact_id', 'Positive', $this->get('contactID'));
     $this->set('contactID', $this->contactID);
-    $this->contact = civicrm_api3('Contact', 'getsingle', ['id' => $this->contactID, 'return' => ['contact_type', 'display_name']]);
-    $this->assign('introText', E::ts('Change contact type for %1', [$this->contact['display_name']]));
+    if (!CRM_Contact_BAO_Contact_Permission::allow($this->contactID, CRM_Core_Permission::EDIT)) {
+      CRM_Core_Error::statusBounce(ts('You do not have permission to edit this contact.'));
+    }
+    $this->contact = civicrm_api3('Contact', 'getsingle', ['id' => $this->contactID, 'return' => ['contact_type', 'display_name'], 'check_permissions' => TRUE]);
+    $this->assign('introText', E::ts('Change contact type for %1', [1 => htmlspecialchars($this->contact['display_name'])]));
   }
 
   /**
@@ -68,6 +71,7 @@ class CRM_Contacteditor_Form_ContactTypeChange extends CRM_Core_Form {
     $params = $this->exportValues();
 
     $params['contact_id'] = $this->contactID;
+    $params['check_permissions'] = TRUE;
 
     try {
       civicrm_api3('Contact', 'create', $params);
